@@ -27,7 +27,7 @@ tetrominoes = {
 }
 
 class Piece:
-    def __init__(self, x, y, shape):
+    def _init_(self, x, y, shape):
         self.x = x
         self.y = y
         self.shape = shape
@@ -340,6 +340,10 @@ def main():
         
         draw_window(win, grid, score, next_pieces, letter_colors, box_color, current_piece, current_color)
         pygame.display.update()
+        
+        if event.type == pygame.KEYDOWN:
+          if event.key == pygame.K_ESCAPE:
+            run = False
 
         if check_lost(locked):
             font = pygame.font.SysFont('comicsans', 60, bold=True)
@@ -350,5 +354,6 @@ def main():
             run = False
 
     pygame.quit()
+
 if __name__ == '__main__':
     main()
