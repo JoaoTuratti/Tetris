@@ -27,7 +27,7 @@ tetrominoes = {
 }
 
 class Piece:
-    def __init__(self, x, y, shape):
+    def _init_(self, x, y, shape):
         self.x = x
         self.y = y
         self.shape = shape
@@ -140,10 +140,28 @@ def draw_sidebar(surface, score, letter_colors, box_color):
         color = letter_colors[i]
         label = font_tetris.render(letter, True, color)
         surface.blit(label, (85, 130 + i * 55))
+        
+        
+def draw_controls(surface):
+    font = pygame.font.SysFont('arial', 20)
+    controls = [
+        "Controles:",
+        " ← → : mover",
+        "↓    : acelerar queda",
+        "↑    : girar peça",
+        "ESC  : sair"
+    ]
+    x = 20
+    y = screen_height - 140
+    for line in controls:
+        label = font.render(line, True, white)
+        surface.blit(label, (x, y))
+        y += 25
 
 def draw_window(surface, grid, score=0, next_pieces=None, letter_colors=None, box_color=(0,255,0)):
     surface.fill(black)
     draw_sidebar(surface, score, letter_colors, box_color)
+    draw_controls(surface)
     draw_grid(surface, grid)
     pygame.draw.rect(surface, white, (200, 0, grid_width * block_size, grid_height * block_size), 5)
     if next_pieces:
@@ -249,6 +267,10 @@ def main():
 
         draw_window(win, grid, score, next_pieces, letter_colors, box_color)
         pygame.display.update()
+        
+        if event.type == pygame.KEYDOWN:
+          if event.key == pygame.K_ESCAPE:
+            run = False
 
         if check_lost(locked):
             font = pygame.font.SysFont('comicsans', 60, bold=True)
@@ -259,5 +281,5 @@ def main():
             run = False
 
     pygame.quit()
-if __name__ == '__main__':
+if _name_ == '_main_':
     main()
