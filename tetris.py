@@ -40,7 +40,7 @@ class Piece:
 def create_grid(locked_positions={}):
     grid = [[black for _ in range(grid_width)] for _ in range(grid_height)]
     for (x, y), color in locked_positions.items():
-        if y >= 0:
+        if y >= 0 and 0 <= x < grid_width and 0 <= y < grid_height:
             grid[y][x] = color
     return grid
 
@@ -50,7 +50,10 @@ def convert_shape_format(piece):
         for i, line in enumerate(piece.image()):
             for j, col in enumerate(line):
                 if col:
-                    positions.append((piece.x + j, piece.y + i))
+                    # Pac-Man style wrapping: if x goes out of bounds, wrap to other side
+                    x = (piece.x + j) % grid_width
+                    y = piece.y + i
+                    positions.append((x, y))
     return positions
 
 def valid_space(piece, grid):
@@ -94,14 +97,21 @@ def flash_rows(surface, grid, rows, letter_colors, flash_times=6, delay=100):
         for y in rows:
             for x in range(grid_width):
                 grid[y][x] = random.choice(colors) if i % 2 == 0 else black
-        draw_window(surface, grid, 0, None, letter_colors, (0, 255, 0))
+        draw_window(surface, grid, 0, None, letter_colors, (0, 255, 0), None, None)
         pygame.display.update()
         pygame.time.delay(delay)
 
 def draw_grid(surface, grid):
     for y in range(grid_height):
         for x in range(grid_width):
-            pygame.draw.rect(surface, grid[y][x], (x * block_size + 200, y * block_size, block_size, block_size), 0)
+            if grid[y][x] != black:
+                # Desenha bloco com efeito 3D
+                draw_3d_block(surface, grid[y][x], x * block_size + 200, y * block_size, block_size)
+            else:
+                # Desenha bloco vazio
+                pygame.draw.rect(surface, black, (x * block_size + 200, y * block_size, block_size, block_size), 0)
+    
+    # Linhas da grade
     for y in range(grid_height):
         pygame.draw.line(surface, gray, (200, y * block_size), (200 + grid_width * block_size, y * block_size))
     for x in range(grid_width):
@@ -119,10 +129,11 @@ def draw_next_pieces(surface, pieces):
             for i, line in enumerate(format):
                 for j, col in enumerate(line):
                     if col:
-                        pygame.draw.rect(surface, color,
-                                         (x_off + j * block_size,
-                                          y_off + 30 + idx * 4 * block_size + i * block_size,
-                                          block_size, block_size), 0)
+                        # Desenha peças da preview com efeito 3D
+                        draw_3d_block(surface, color,
+                                     x_off + j * block_size,
+                                     y_off + 30 + idx * 4 * block_size + i * block_size,
+                                     block_size)
 
 def draw_sidebar(surface, score, letter_colors, box_color):
     font = pygame.font.SysFont('comicsans', 30, bold=True)
@@ -140,14 +151,89 @@ def draw_sidebar(surface, score, letter_colors, box_color):
         color = letter_colors[i]
         label = font_tetris.render(letter, True, color)
         surface.blit(label, (85, 130 + i * 55))
+        
+        
+def draw_controls(surface):
+    font = pygame.font.SysFont('arial', 20)
+    controls = [
+        "Controles:",
+        " ← → : mover",
+        "↓    : acelerar queda",
+        "↑    : girar peça",
+        "ESC  : sair"
+    ]
+    x = 20
+    y = screen_height - 140
+    for line in controls:
+        label = font.render(line, True, white)
+        surface.blit(label, (x, y))
+        y += 25
 
-def draw_window(surface, grid, score=0, next_pieces=None, letter_colors=None, box_color=(0,255,0)):
+def draw_window(surface, grid, score=0, next_pieces=None, letter_colors=None, box_color=(0,255,0), current_piece=None, current_color=None):
     surface.fill(black)
     draw_sidebar(surface, score, letter_colors, box_color)
+    draw_controls(surface)
     draw_grid(surface, grid)
+    
+    # Desenha a peça fantasma (ghost piece)
+    if current_piece:
+        ghost_piece = get_ghost_piece(current_piece, grid)
+        if ghost_piece:
+            ghost_color = tuple(c // 3 for c in current_color)  # Cor mais transparente
+            for pos in convert_shape_format(ghost_piece):
+                x, y = pos
+                if y > -1 and 0 <= x < grid_width and 0 <= y < grid_height:
+                    # Desenha bloco fantasma com transparência
+                    pygame.draw.rect(surface, ghost_color, 
+                                   (x * block_size + 200, y * block_size, block_size, block_size), 2)
+    
+    # Desenha a peça atual com efeito 3D
+    if current_piece:
+        for pos in convert_shape_format(current_piece):
+            x, y = pos
+            if y > -1 and 0 <= x < grid_width and 0 <= y < grid_height:
+                draw_3d_block(surface, current_color, x * block_size + 200, y * block_size, block_size)
+    
     pygame.draw.rect(surface, white, (200, 0, grid_width * block_size, grid_height * block_size), 5)
     if next_pieces:
         draw_next_pieces(surface, next_pieces)
+
+def draw_3d_block(surface, color, x, y, size):
+    """Desenha um bloco com efeito 3D"""
+    # Cores para o efeito 3D
+    light_color = tuple(min(255, c + 60) for c in color)  # Cor mais clara
+    dark_color = tuple(max(0, c - 60) for c in color)    # Cor mais escura
+    
+    # Bloco principal
+    pygame.draw.rect(surface, color, (x, y, size, size), 0)
+    
+    # Borda superior e esquerda (mais clara)
+    pygame.draw.polygon(surface, light_color, [
+        (x, y), (x + size - 3, y), (x + size - 3, y + 3), (x + 3, y + 3), (x + 3, y + size - 3), (x, y + size - 3)
+    ])
+    
+    # Borda inferior e direita (mais escura)
+    pygame.draw.polygon(surface, dark_color, [
+        (x + 3, y + size - 3), (x + size - 3, y + size - 3), (x + size - 3, y + 3), (x + size, y + 3), (x + size, y + size), (x, y + size)
+    ])
+    
+    # Borda externa preta
+    pygame.draw.rect(surface, gray, (x, y, size, size), 1)
+
+def get_ghost_piece(current_piece, grid):
+    """Calcula onde a peça atual vai cair (ghost piece)"""
+    if not current_piece:
+        return None
+    
+    ghost_piece = Piece(current_piece.x, current_piece.y, current_piece.shape)
+    ghost_piece.rotation = current_piece.rotation
+    
+    # Move a peça fantasma para baixo até encontrar obstáculo
+    while valid_space(ghost_piece, grid):
+        ghost_piece.y += 1
+    ghost_piece.y -= 1  # Volta uma posição
+    
+    return ghost_piece
 
 def main():
     pygame.init()
@@ -198,14 +284,22 @@ def main():
                     current_piece.y -= 1
             if keys[pygame.K_LEFT] and horizontal_time / 1000 >= horizontal_speed:
                 horizontal_time = 0
+                old_x = current_piece.x
                 current_piece.x -= 1
+                # Allow wrapping to the right side if going too far left
+                if current_piece.x < -3:  # Allow some tolerance for piece width
+                    current_piece.x = grid_width - 1
                 if not valid_space(current_piece, grid):
-                    current_piece.x += 1
+                    current_piece.x = old_x  # Restore if invalid
             elif keys[pygame.K_RIGHT] and horizontal_time / 1000 >= horizontal_speed:
                 horizontal_time = 0
+                old_x = current_piece.x
                 current_piece.x += 1
+                # Allow wrapping to the left side if going too far right
+                if current_piece.x > grid_width + 2:  # Allow some tolerance for piece width
+                    current_piece.x = 0
                 if not valid_space(current_piece, grid):
-                    current_piece.x -= 1
+                    current_piece.x = old_x  # Restore if invalid
 
         if level_time / 1000 > 60:
             level_time = 0
@@ -234,20 +328,17 @@ def main():
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 run = False
-            if event.type == pygame.KEYDOWN and current_piece:
-                if event.key == pygame.K_UP:
+            if event.type == pygame.KEYDOWN:
+                if event.key == pygame.K_ESCAPE:
+                    run = False
+                elif current_piece and event.key == pygame.K_UP:
                     current_piece.rotate()
                     if not valid_space(current_piece, grid):
                         current_piece.rotate() 
                         current_piece.rotate()
                         current_piece.rotate()
-        if current_piece:
-            for pos in convert_shape_format(current_piece):
-                x, y = pos
-                if y > -1:
-                    grid[y][x] = current_color
-
-        draw_window(win, grid, score, next_pieces, letter_colors, box_color)
+        
+        draw_window(win, grid, score, next_pieces, letter_colors, box_color, current_piece, current_color)
         pygame.display.update()
 
         if check_lost(locked):
