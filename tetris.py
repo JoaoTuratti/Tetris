@@ -27,11 +27,12 @@ tetrominoes = {
 }
 
 class Piece:
-    def _init_(self, x, y, shape):
+    def __init__(self, x, y, shape):  # <-- corrigido
         self.x = x
         self.y = y
         self.shape = shape
         self.rotation = 0
+
     def image(self):
         return self.shape[self.rotation % len(self.shape)]
     def rotate(self):
